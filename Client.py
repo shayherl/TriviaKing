@@ -1,12 +1,30 @@
 import socket
 import sys
 import threading
+import random
 
+clients_names = ['Jessie', 'Thumper', 'Cotton', 'Hazel', 'Clover', 'Marshmallow', 'Binky', 'Willow', 'Peanut',
+                 'Poppy', 'Luna', 'Jasper', 'Oliver']
 
 class bcolors:
     LIGHTBLUE = '\033[36m'
     RED = '\033[31m'
     ENDC = '\033[0m'
+    black = '\033[30m'
+    red = '\033[31m'
+    green = '\033[32m'
+    orange = '\033[33m'
+    blue = '\033[34m'
+    purple = '\033[35m'
+    cyan = '\033[36m'
+    lightgrey = '\033[37m'
+    darkgrey = '\033[90m'
+    lightred = '\033[91m'
+    lightgreen = '\033[92m'
+    yellow = '\033[93m'
+    lightblue = '\033[94m'
+    pink = '\033[95m'
+    lightcyan = '\033[96m'
 
 
 # Constants
@@ -18,9 +36,6 @@ SERVER_OFFER_TYPE = b'\x02'
 
 class TriviaClient:
     def __init__(self, team_name):
-        self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.udp_socket.bind(('', UDP_PORT))
         self.tcp_socket = None
         self.team_name = team_name
         self.is_playing = False
@@ -29,6 +44,9 @@ class TriviaClient:
         print(f"{bcolors.LIGHTBLUE}Client started, listening for offer requests...{bcolors.ENDC}")
         while True:
             try:
+                self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                self.udp_socket.bind(('', UDP_PORT))
                 data, address = self.udp_socket.recvfrom(1024)
                 if data.startswith(MAGIC_COOKIE) and data[4:5] == SERVER_OFFER_TYPE:
                     server_name = data[5:5 + SERVER_NAME_LENGTH].decode().strip('\0')
@@ -68,31 +86,32 @@ class TriviaClient:
                     if message == expected_message:
                         self.is_playing = False
                         self.listen_for_offer()
-                else:
-                    print(f"{bcolors.LIGHTBLUE}Server disconnected, listening for offer requests...\n{bcolors.ENDC}")
-                    self.is_playing = False
-                    self.listen_for_offer()
+                # else:
+                #     print(f"{bcolors.lightgrey}Server disconnected, listening for offer requests...\n{bcolors.ENDC}")
+                #     self.is_playing = False
+                #     self.listen_for_offer()
             except socket.timeout:
                 continue
-            except Exception as e:
-                print(f"{bcolors.RED}Error receiving message: {e}{bcolors.ENDC}")
+            except (ConnectionResetError, BrokenPipeError, ConnectionAbortedError, OSError):
+                print(f"{bcolors.lightgrey}Server disconnected, listening for offer requests...\n{bcolors.ENDC}")
                 self.is_playing = False
+                self.listen_for_offer()
+            # except Exception as e:
+            #     print(f"{bcolors.RED}Error receiving message: {e}{bcolors.ENDC}")
+            #     self.is_playing = False
 
     def send_user_input(self):
         while self.is_playing:
             try:
                 user_input = input().strip()
                 self.tcp_socket.sendall(user_input.encode())
-            except Exception as e:
-                print(f"{bcolors.RED}Error sending user input: {e}{bcolors.ENDC}")
+            except (ConnectionResetError, BrokenPipeError, ConnectionAbortedError, OSError):
+                print(f"{bcolors.lightgrey}Server disconnected, listening for offer requests...\n{bcolors.ENDC}")
                 self.is_playing = False
+                self.listen_for_offer()
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print(f"{bcolors.RED}Usage: python client.py <team_name>{bcolors.ENDC}")
-        sys.exit(1)
-
-    team_name = sys.argv[1]
+    team_name = random.choice(clients_names)
     client = TriviaClient(team_name)
     client.listen_for_offer()
